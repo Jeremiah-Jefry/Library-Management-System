@@ -129,13 +129,7 @@ btn_exit.grid(row=2, column=1, padx=10, pady=10)
 listbox = tk.Listbox(root, width=80)
 listbox.pack(pady=20)
 
-# scrollbar = tk.Scrollbar(frame)
-# scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-# listbox = tk.Listbox(frame, width=100, yscrollcommand=scrollbar.set, font=("Consolas", 12))
-# listbox.pack()
-
-# scrollbar.config(command=listbox.yview)
 
 # Start the GUI event loop
 display_books()
