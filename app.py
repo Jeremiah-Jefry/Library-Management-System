@@ -100,31 +100,42 @@ def search_book():
 # GUI Setup
 root = tk.Tk()
 root.title("Library Management System")
-root.geometry("600x400")
+root.geometry("800x450")
+
+heading = tk.Label(root, text="Library Management System", font=("Arial", 25, "bold"))
+heading.pack(pady=10)
 
 frame = tk.Frame(root)
 frame.pack(pady=20)
 
-btn_add = tk.Button(frame, text="Add Book", width=15, command=add_book)
+btn_add = tk.Button(frame, text="Add Book", width=15, command=add_book, bg="#4CAF50", fg="white")
 btn_add.grid(row=0, column=0, padx=10, pady=10)
 
-btn_display = tk.Button(frame, text="Display Books", width=15, command=display_books)
+btn_display = tk.Button(frame, text="Display Books", width=15, command=display_books, bg="#2196F3", fg="white")
 btn_display.grid(row=0, column=1, padx=10, pady=10)
 
-btn_borrow = tk.Button(frame, text="Borrow Book", width=15, command=borrow_book)
+btn_borrow = tk.Button(frame, text="Borrow Book", width=15, command=borrow_book, bg="#9C27B0", fg="white")
 btn_borrow.grid(row=1, column=0, padx=10, pady=10)
 
-btn_return = tk.Button(frame, text="Return Book", width=15, command=return_book)
+btn_return = tk.Button(frame, text="Return Book", width=15, command=return_book, bg="#F44336", fg="white")
 btn_return.grid(row=1, column=1, padx=10, pady=10)
 
-btn_search = tk.Button(frame, text="Search Book", width=15, command=search_book)
+btn_search = tk.Button(frame, text="Search Book", width=15, command=search_book, bg="#FF9800", fg="white")
 btn_search.grid(row=2, column=0, padx=10, pady=10)
 
-btn_exit = tk.Button(frame, text="Exit", width=15, command=root.quit)
+btn_exit = tk.Button(frame, text="Exit", width=15, command=root.quit, bg="#607D8B", fg="white")
 btn_exit.grid(row=2, column=1, padx=10, pady=10)
 
 listbox = tk.Listbox(root, width=80)
 listbox.pack(pady=20)
+
+# scrollbar = tk.Scrollbar(frame)
+# scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# listbox = tk.Listbox(frame, width=100, yscrollcommand=scrollbar.set, font=("Consolas", 12))
+# listbox.pack()
+
+# scrollbar.config(command=listbox.yview)
 
 # Start the GUI event loop
 display_books()
