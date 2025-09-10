@@ -4,14 +4,6 @@ from tkinter import messagebox, simpledialog
 import mysql.connector
 from datetime import date
 
-# # Database connection
-# DB_CONFIG = {
-#     "host": "localhost",
-#     "user": "root",
-#     "password": "Password123",
-#     "database": "library_db"
-# }
-
 # Python MySql Connectivity
 db = mysql.connector.connect(
     host="localhost",
@@ -20,7 +12,6 @@ db = mysql.connector.connect(
     database="library_db"
 )
 cursor = db.cursor()
-# cursor.execute("CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database'] }")
 cursor.execute("USE library_db")
 
 # Create tables if they don't exist
