@@ -1,137 +1,181 @@
-#Library imports
-import tkinter as tk
-from tkinter import messagebox, simpledialog
+# Library imports
+import streamlit as st
 import mysql.connector
 from datetime import date
+import pandas as pd
 
-# Python MySql Connectivity
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="Password123",
-    database="library_db"
-)
-cursor = db.cursor()
-cursor.execute("USE library_db")
+# --- Database Connection ---
+def get_db_connection():
+    """Establishes and returns a connection to the MySQL database."""
+    try:
+        db = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="Password123",  # Replace with your MySQL password
+            database="library_db"
+        )
+        return db
+    except mysql.connector.Error as err:
+        st.error(f"Error connecting to database: {err}")
+        return None
 
-# Create tables if they don't exist
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS books (
-    book_id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    author VARCHAR(255) NOT NULL,
-    available BOOLEAN DEFAULT TRUE
-)
-""")
-cursor.execute("""
-CREATE TABLE IF NOT EXISTS borrow (
-    borrow_id INT AUTO_INCREMENT PRIMARY KEY,
-    book_id INT,
-    borrow_date DATE,
-    return_date DATE,
-    FOREIGN KEY (book_id) REFERENCES books(book_id)
-)
-""")
-db.commit()
+def setup_database(db):
+    """Creates the necessary tables if they don't already exist."""
+    cursor = db.cursor()
+    cursor.execute("USE library_db")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS books (
+        book_id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        author VARCHAR(255) NOT NULL,
+        available BOOLEAN DEFAULT TRUE
+    )
+    """)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS borrow (
+        borrow_id INT AUTO_INCREMENT PRIMARY KEY,
+        book_id INT,
+        borrow_date DATE,
+        return_date DATE,
+        FOREIGN KEY (book_id) REFERENCES books(book_id)
+    )
+    """)
+    db.commit()
+    cursor.close()
 
-# Functions
-def add_book():
-    title = simpledialog.askstring("Add Book", "Enter book title:")
-    author = simpledialog.askstring("Add Book", "Enter book author:")
+# --- Core Functions ---
+def display_books(db):
+    """Fetches and displays all books in a DataFrame."""
+    cursor = db.cursor()
+    cursor.execute("SELECT book_id, title, author, available FROM books")
+    result = cursor.fetchall()
+    cursor.close()
+    if result:
+        df = pd.DataFrame(result, columns=['ID', 'Title', 'Author', 'Available'])
+        df['Status'] = df['Available'].apply(lambda x: "Available" if x else "Borrowed")
+        st.dataframe(df[['ID', 'Title', 'Author', 'Status']])
+    else:
+        st.info("No books found in the library.")
+
+def add_book(db, title, author):
+    """Adds a new book to the database."""
     if title and author:
+        cursor = db.cursor()
         cursor.execute("INSERT INTO books (title, author) VALUES (%s, %s)", (title, author))
         db.commit()
-        messagebox.showinfo("Success", "Book added successfully!")
+        cursor.close()
+        st.success("Book added successfully!")
     else:
-        messagebox.showwarning("Input Error", "Title and Author cannot be empty.")
+        st.warning("Title and Author cannot be empty.")
 
-def display_books():
-    listbox.delete(0, tk.END)
-    cursor.execute("SELECT book_id, title, author, available FROM books")  
-    for book in cursor.fetchall():
-        status = "Available" if book[3] else "Borrowed"
-        listbox.insert(tk.END, f"ID: {book[0]}, Title: {book[1]}, Author: {book[2]}, Status: {status}")
-
-def borrow_book():
-    book_id = simpledialog.askinteger("Borrow Book", "Enter book ID to borrow:")
+def borrow_book(db, book_id):
+    """Borrows a book by its ID."""
     if book_id:
+        cursor = db.cursor()
         cursor.execute("SELECT available FROM books WHERE book_id = %s", (book_id,))
         result = cursor.fetchone()
         if result and result[0]:
             cursor.execute("UPDATE books SET available = FALSE WHERE book_id = %s", (book_id,))
             cursor.execute("INSERT INTO borrow (book_id, borrow_date) VALUES (%s, %s)", (book_id, date.today()))
             db.commit()
-            messagebox.showinfo("Success", "Book borrowed successfully!")
+            st.success("Book borrowed successfully!")
         else:
-            messagebox.showwarning("Unavailable", "Book is not available for borrowing.")
+            st.warning("Book is not available for borrowing.")
+        cursor.close()
     else:
-        messagebox.showwarning("Input Error", "Book ID cannot be empty.")
+        st.warning("Book ID cannot be empty.")
 
-def return_book():
-    book_id = simpledialog.askinteger("Return Book", "Enter book ID to return:")
+def return_book(db, book_id):
+    """Returns a borrowed book by its ID."""
     if book_id:
+        cursor = db.cursor()
         cursor.execute("SELECT available FROM books WHERE book_id = %s", (book_id,))
         result = cursor.fetchone()
         if result and not result[0]:
             cursor.execute("UPDATE books SET available = TRUE WHERE book_id = %s", (book_id,))
             cursor.execute("UPDATE borrow SET return_date = %s WHERE book_id = %s AND return_date IS NULL", (date.today(), book_id))
             db.commit()
-            messagebox.showinfo("Success", "Book returned successfully!")
+            st.success("Book returned successfully!")
         else:
-            messagebox.showwarning("Error", "Book is not currently borrowed.")
+            st.error("Book is not currently borrowed.")
+        cursor.close()
     else:
-        messagebox.showwarning("Input Error", "Book ID cannot be empty.")
+        st.warning("Book ID cannot be empty.")
 
-def search_book():
-    search_term = simpledialog.askstring("Search Book", "Enter book title or author:")
+def search_book(db, search_term):
+    """Searches for books by title or author."""
     if search_term:
-        listbox.delete(0, tk.END)
-        cursor.execute("SELECT book_id, title, author, available FROM books WHERE title LIKE %s OR author LIKE %s", (f"%{search_term}%", f"%{search_term}%"))
+        cursor = db.cursor()
+        query = "SELECT book_id, title, author, available FROM books WHERE title LIKE %s OR author LIKE %s"
+        cursor.execute(query, (f"%{search_term}%", f"%{search_term}%"))
         results = cursor.fetchall()
+        cursor.close()
         if results:
-            for book in results:
-                status = "Available" if book[3] else "Borrowed"
-                listbox.insert(tk.END, f"ID: {book[0]}, Title: {book[1]}, Author: {book[2]}, Status: {status}")
+            df = pd.DataFrame(results, columns=['ID', 'Title', 'Author', 'Available'])
+            df['Status'] = df['Available'].apply(lambda x: "Available" if x else "Borrowed")
+            st.write("### Search Results")
+            st.dataframe(df[['ID', 'Title', 'Author', 'Status']])
         else:
-            messagebox.showinfo("No Results", "No books found matching the search criteria.")
+            st.info("No books found matching the search criteria.")
     else:
-        messagebox.showwarning("Input Error", "Search term cannot be empty.")
-
-# GUI Setup
-root = tk.Tk()
-root.title("Library Management System")
-root.geometry("800x450")
-
-heading = tk.Label(root, text="Library Management System", font=("Arial", 25, "bold"))
-heading.pack(pady=10)
-
-frame = tk.Frame(root)
-frame.pack(pady=20)
-
-btn_add = tk.Button(frame, text="Add Book", width=15, command=add_book, bg="#4CAF50", fg="white")
-btn_add.grid(row=0, column=0, padx=10, pady=10)
-
-btn_display = tk.Button(frame, text="Display Books", width=15, command=display_books, bg="#2196F3", fg="white")
-btn_display.grid(row=0, column=1, padx=10, pady=10)
-
-btn_borrow = tk.Button(frame, text="Borrow Book", width=15, command=borrow_book, bg="#9C27B0", fg="white")
-btn_borrow.grid(row=1, column=0, padx=10, pady=10)
-
-btn_return = tk.Button(frame, text="Return Book", width=15, command=return_book, bg="#F44336", fg="white")
-btn_return.grid(row=1, column=1, padx=10, pady=10)
-
-btn_search = tk.Button(frame, text="Search Book", width=15, command=search_book, bg="#FF9800", fg="white")
-btn_search.grid(row=2, column=0, padx=10, pady=10)
-
-btn_exit = tk.Button(frame, text="Exit", width=15, command=root.quit, bg="#607D8B", fg="white")
-btn_exit.grid(row=2, column=1, padx=10, pady=10)
-
-listbox = tk.Listbox(root, width=80)
-listbox.pack(pady=20)
+        st.warning("Search term cannot be empty.")
 
 
+# --- Streamlit UI ---
+st.set_page_config(page_title="Library Management System", layout="wide")
+st.title("Library Management System")
 
-# Start the GUI event loop
-display_books()
+db = get_db_connection()
 
-root.mainloop()
+if db:
+    setup_database(db)
+
+    st.sidebar.title("Actions")
+    menu = ["Display Books", "Add Book", "Borrow Book", "Return Book", "Search Book"]
+    choice = st.sidebar.selectbox("Menu", menu)
+
+    if choice == "Display Books":
+        st.header("All Books")
+        display_books(db)
+
+    elif choice == "Add Book":
+        st.header("Add a New Book")
+        with st.form("add_book_form"):
+            title = st.text_input("Title")
+            author = st.text_input("Author")
+            submitted = st.form_submit_button("Add Book")
+            if submitted:
+                add_book(db, title, author)
+                st.experimental_rerun()
+
+    elif choice == "Borrow Book":
+        st.header("Borrow a Book")
+        with st.form("borrow_book_form"):
+            book_id = st.number_input("Book ID to Borrow", min_value=1, step=1)
+            submitted = st.form_submit_button("Borrow Book")
+            if submitted:
+                borrow_book(db, book_id)
+                st.experimental_rerun()
+        st.info("Refer to the 'Display Books' section to find the ID of the book you want to borrow.")
+
+
+    elif choice == "Return Book":
+        st.header("Return a Book")
+        with st.form("return_book_form"):
+            book_id = st.number_input("Book ID to Return", min_value=1, step=1)
+            submitted = st.form_submit_button("Return Book")
+            if submitted:
+                return_book(db, book_id)
+                st.experimental_rerun()
+        st.info("Refer to the 'Display Books' section to find the ID of the book you are returning.")
+
+
+    elif choice == "Search Book":
+        st.header("Search for a Book")
+        search_term = st.text_input("Enter book title or author")
+        if st.button("Search"):
+            search_book(db, search_term)
+
+    db.close()
+else:
+    st.error("Cannot connect to the database. Please check your connection and credentials.")
